@@ -38,8 +38,21 @@ public:
 		return e1.second>e2.second;
 	}
 };
-bool comparefn(pairtype e1,pairtype e2){
-	return e1.first<=e2.first;
+// bool comparefn(pairtype e1,pairtype e2){
+// 	return e1.first<=e2.first;
+// }
+void customsort(vector<pairtype> &v)
+{
+	vector<pair<double,int> > aux;
+	for(int i=0;i<v.size();i++){
+		aux.push_back(make_pair(v[i].first,i));
+	}
+	sort(aux.begin(),aux.end());
+	vector<pairtype> temp;
+	for(int i=0;i<v.size();i++){
+		temp.push_back(v[aux[i].second]);
+	}
+	v=temp;
 }
 inline string formKey(vector<int> robots)
 {
@@ -505,6 +518,7 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 			cout<<"Unable to handle! Max size of collision group is four...\n";
 			return 0;
 		}
+		customsort(productMat);
 		// try{
 		// 	sort(productMat.begin(),productMat.end(),comparefn);
 		// }catch(exception &e){
@@ -722,7 +736,6 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			category[j]=type[index[j]];
 		}
 		int res=findCompositePath(g1,g2,start,end,category,paths_new);
-		cout<<res<<endl;
 		if(res==0){
 			cout<<"No path exist\n";
 			return 1;
