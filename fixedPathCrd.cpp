@@ -50,9 +50,6 @@ public:
 		return e1.second>e2.second;
 	}
 };
-// bool comparefn(pairtype e1,pairtype e2){
-// 	return e1.first<=e2.first;
-// }
 void customsort(vector<pairtype> &v)
 {
 	vector<pair<double,int> > aux;
@@ -506,7 +503,9 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 			else
 				nbr[i]=g2.adjlst[from[i]];
 		}
+		// Finding neighbours of 'from' node in composite space by filtering out from composite nbrhood matrix
 		vector<pairtype> selected,productMat;
+		// Select Axial elements first
 		for(int i=0;i<src.size();i++){
 			vector<int> temp=from;
 			for(int j=0;j<nbr[i].size();j++){
@@ -514,6 +513,9 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 				selected.push_back(make_pair(nbr[i][j].second,temp));
 			}
 		}
+		// Next step is to select best suitable elements from the rest of product matrix. We define
+		// composite neighbour as follows: $Y \in nbr(X)$ if $Y(i)==nbr(X(i))$ or $X(i)$ itself for
+		// all $i$. 
 		if(src.size()==2){
 			for(int i=0;i<nbr[0].size();i++)
 			for(int j=0;j<nbr[1].size();j++){
@@ -548,18 +550,8 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 			cout<<"Unable to handle! Max size of collision group is four...\n";
 			return 0;
 		}
+		// Choose k elements from productMat with minimum distan
 		customsort(productMat);
-		// try{
-		// 	sort(productMat.begin(),productMat.end(),comparefn);
-		// }catch(exception &e){
-		// 	cerr<<"Exception caught "<<e.what()<<endl;
-		// 	for(int i=0;i<from.size();i++){
-		// 		cout<<from[i]<<" ";
-		// 	}
-		// 	cout<<endl;
-		// 	cout<<productMat.size()<<" throwing...\n";
-		// 	throw e;
-		// }
 		for(int i=0;i<min(k,productMat.size());i++)
 		{
 			selected.push_back(productMat[i]);							//distance
@@ -573,7 +565,6 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 				continue;
 			double distance=curdist+wt;
 			if((inpq.find(formKey(to))==inpq.end() && isFeasible_static_multi(to,mask,type)) || (inpq.find(formKey(to))!=inpq.end() && inpq[formKey(to)]>distance)){
-				//total_edges++;
 				if(isFeasible_dynamic_multi(from,to,mask,type)){
 					pq.push(make_pair(distance,to));
 					inpq[formKey(to)]=distance;
@@ -609,6 +600,240 @@ int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type
 	cout<<"Roadmap composition ended at ";
 	showtime();
 	return 1;
+}
+vector<int> expand(Graph &g1,Graph &g2,int size,int k,unordered_set<string> &taken,pqtype &pq,unordered_map<string,double> &inpq,unordered_map<string,vector<int> > &parents,int type[],bool mask[])
+{
+	// Returns extracted node from the priority queue
+	pairtype temp=pq.top();
+	pq.pop();
+	vector<int> from=temp.second;
+	double curdist=temp.first;
+	if(taken.find(formKey(from))!=taken.end())
+		return from;
+	taken.insert(formKey(from));
+	vector<pair<int,double> > nbr[size];
+	for(int i=0;i<size;i++){
+		if(type[i]==0)
+			nbr[i]=g1.adjlst[from[i]];
+		else
+			nbr[i]=g2.adjlst[from[i]];
+	}
+	// Finding neighbours of 'from' node in composite space by filtering out from composite nbrhood matrix
+	vector<pairtype> selected,productMat;
+	// Select Axial elements first
+	for(int i=0;i<size;i++){
+		vector<int> temp=from;
+		for(int j=0;j<nbr[i].size();j++){
+			temp[i]=nbr[i][j].first;
+			selected.push_back(make_pair(nbr[i][j].second,temp));
+		}
+	}
+	// Next step is to select best suitable elements from the rest of product matrix. We define
+	// composite neighbour as follows: $Y \in nbr(X)$ if $Y(i)==nbr(X(i))$ or $X(i)$ itself for
+	// all $i$.
+	/************** TO BE FIXED! MISSING SOME ELEMENTS ************/
+	if(size==2){
+		for(int i=0;i<nbr[0].size();i++)
+		for(int j=0;j<nbr[1].size();j++){
+			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second);
+			vector<int> temp;
+			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);
+			productMat.push_back(make_pair(distance,temp));
+		}	
+	}
+	else if(size==3){
+		for(int i=0;i<nbr[0].size();i++)
+		for(int j=0;j<nbr[1].size();j++)
+		for(int k=0;k<nbr[2].size();k++){
+			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second);
+			vector<int> temp;
+			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);
+			productMat.push_back(make_pair(distance,temp));
+		}	
+	}
+	else if(size==4){
+		for(int i=0;i<nbr[0].size();i++)
+		for(int j=0;j<nbr[1].size();j++)
+		for(int k=0;k<nbr[2].size();k++)
+		for(int l=0;l<nbr[3].size();l++){
+			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second+nbr[3][l].second*nbr[3][l].second);
+			vector<int> temp;
+			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);temp.push_back(nbr[3][l].first);
+			productMat.push_back(make_pair(distance,temp));
+		}	
+	}
+	// Choose k elements from productMat with minimum distan
+	customsort(productMat);
+	for(int i=0;i<min(k,productMat.size());i++)
+	{
+		selected.push_back(productMat[i]);							//distance
+		//selected.push_back(make_pair(1,productMat[i].second));	//step
+	}
+	for(int i=0;i<selected.size();i++)
+	{
+		vector<int> to=selected[i].second;
+		double wt=selected[i].first;
+		if(taken.find(formKey(to))!=taken.end())
+			continue;
+		double distance=curdist+wt;
+		if((inpq.find(formKey(to))==inpq.end() && isFeasible_static_multi(to,mask,type)) || (inpq.find(formKey(to))!=inpq.end() && inpq[formKey(to)]>distance)){
+			if(isFeasible_dynamic_multi(from,to,mask,type)){
+				pq.push(make_pair(distance,to));
+				inpq[formKey(to)]=distance;
+				parents[formKey(to)]=from;
+			}
+		}
+	}
+	return from;
+}
+int findCompositePath_bidirectional(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[],vector<int> paths[])
+{
+	if(src.size()>4){
+		cout<<"Can't compute composite path for more than 4 robots\n";
+		return 0;
+	}
+	unordered_set<string> taken_src,taken_dst;
+	pqtype pq_src,pq_dst;
+	bool mask[src.size()];
+	memset(mask,false,sizeof(mask));
+	unordered_map<string,double> inpq_src,inpq_dst;
+	unordered_map<string,vector<int> > parents_src,parents_dst;
+	int k=12; 	// value of k depends on the policy of choosing neigbours
+	pq_src.push(make_pair(0,src));pq_dst.push(make_pair(0,dst));
+	inpq_src[formKey(src)]=0;inpq_dst[formKey(dst)]=0;
+	parents_src[formKey(src)]=src;parents_dst[formKey(dst)]=dst;
+	string src_str=formKey(src),dst_str=formKey(dst);
+	stack<vector<int> > stk;
+	cout<<"Roadmap composition started at ";
+	showtime();
+	while(!pq_src.empty() && !pq_dst.empty())
+	{
+		// Randomly choose direction of this iteration
+		vector<int> res;
+		int t=rand()%2;
+		if(t==0){
+			res=expand(g1,g2,src.size(),k,taken_src,pq_src,inpq_src,parents_src,type,mask);
+			// If src tree is connected to dst node
+			if(taken_src.find(dst_str)!=taken_src.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				return 1;
+			}
+			// Check if connection established via intermediate res node
+			if(taken_dst.find(formKey(res))!=taken_dst.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				// Saves path from res to dst
+				temp=parents_dst[formKey(res)];
+				while(1){
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				    if(parents_dst[formKey(temp)]==temp){
+				    	showtime();
+				    	return 1;
+				    }
+				    temp=parents_dst[formKey(temp)];
+				}
+			}
+		}
+		else{
+			res=expand(g1,g2,src.size(),k,taken_dst,pq_dst,inpq_dst,parents_dst,type,mask);
+			// If dst tree is connected to src node
+			if(taken_dst.find(src_str)!=taken_dst.end()){
+				vector<int> temp=res;
+				while(1)
+				{
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+					if(temp==parents_dst[formKey(temp)]){
+						showtime();
+						return 1;
+					}
+					temp=parents_dst[formKey(temp)];
+				}
+			}
+			// Check if connection established via intermediate res node
+			if(taken_src.find(formKey(res))!=taken_src.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				// Saves path from res to dst
+				temp=parents_dst[formKey(res)];
+				while(1){
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				    if(parents_dst[formKey(temp)]==temp){
+				    	showtime();
+				    	return 1;
+				    }
+				    temp=parents_dst[formKey(temp)];
+				}
+			}
+		}
+	}
+	showtime();
+	return 0;
 }
 int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[])
 {
@@ -767,7 +992,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				end.push_back(dst[index[j]]);
 				category[j]=type[index[j]];
 			}
-			int res=findCompositePath(g1,g2,start,end,category,paths_new);
+			int res=findCompositePath_bidirectional(g1,g2,start,end,category,paths_new);
 			if(res==0){
 				cout<<"No path exist\n";
 				return 1;
