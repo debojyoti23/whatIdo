@@ -27,12 +27,12 @@ class Graph
 {
 	int V;
 public:
-	vector<pair<int,double> > *adjlst;
-	Graph(int v):V(v){adjlst=new vector<pair<int,double> >[V];}
+	set<pair<int,double> > *adjlst;
+	Graph(int v):V(v){adjlst=new set<pair<int,double> >[V];}
 	void addEdge(int v1,int v2,double w)
 	{
-		adjlst[v1].push_back(make_pair(v2,w) );
-		//adjlst[v2].push_back(make_pair(v1,w) );
+		adjlst[v1].insert(make_pair(v2,w));
+		adjlst[v2].insert(make_pair(v1,w));
 	}
 };
 void showtime()
@@ -338,11 +338,12 @@ vector<int> findIndividualPath(Graph g,int src,int dst)
 		if(taken.find(from)!=taken.end())
 			continue;
 		double curdist=temp.first;
-		vector<pair<int,double> > nbr;
+		set<pair<int,double> > nbr;
 		nbr=g.adjlst[from];
-		for(int i=0;i<nbr.size();i++){
-			int to=nbr[i].first;
-			double dist=curdist+nbr[i].second;
+		set<pair<int,double> >::iterator it;
+		for(it=nbr.begin();it!=nbr.end();it++){
+			int to=it->first;
+			double dist=curdist+it->second;
 			if(taken.find(to)!=taken.end())
 				continue;
 			if(inpq.find(to)==inpq.end() || dist<inpq[to]){
@@ -377,7 +378,7 @@ bool isless(vector<int> v1,vector<int> v2)
 	}
 	return true;
 }
-vector<int> getRechability(Graph g1,Graph g2,vector<int> src,vector<int> dst,vector<int> paths[],unordered_map<string,pair<string,int> > &cost,bool mask[],int type[])
+vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,vector<int> paths[],unordered_map<string,pair<string,int> > &cost,bool mask[],int type[],vector<vector<int> > &reachable_states)
 {
 	vector<vector<int> > minimal_set;
 	int l[src.size()];
@@ -450,6 +451,7 @@ vector<int> getRechability(Graph g1,Graph g2,vector<int> src,vector<int> dst,vec
 			}
 		}
 	}
+	reachable_states=minimal_set;
 	vector<int> nonzero(src.size(),0);
 	cout<<"States with no predecessor:\n";
 	for(int i=0;i<minimal_set.size();i++){
@@ -461,147 +463,7 @@ vector<int> getRechability(Graph g1,Graph g2,vector<int> src,vector<int> dst,vec
 	showtime();
 	return nonzero;
 }
-int findCompositePath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[],vector<int> paths[])
-{
-	unordered_set<string> taken;
-	pqtype pq;
-	bool mask[src.size()];
-	memset(mask,false,sizeof(mask));
-	///int total_edges=0,discarded_edges=0;
-	unordered_map<string,double> inpq;
-	unordered_map<string,vector<int> > parents;
-	int k=12; // value of k depends on the policy of choosing neigbours
-	pq.push(make_pair(0,src));
-	inpq[formKey(src)]=0;
-	parents[formKey(src)]=src;
-	//int max=0;
-	cout<<"Roadmap composition started at ";
-	showtime();
-	while(!pq.empty())
-	{
-		// if(max<pq.size())
-		// 	max=pq.size();
-		pairtype temp=pq.top();
-		pq.pop();
-		vector<int> from=temp.second;
-		// Check if from=dst
-		bool seen=true;
-		for(int i=0;i<src.size();i++){
-			if(from[i]!=dst[i]){
-				seen=false;break;
-			}
-		}
-		if(seen)break;
-		double curdist=temp.first;
-		if(taken.find(formKey(from))!=taken.end())
-			continue;
-		taken.insert(formKey(from));
-		vector<pair<int,double> > nbr[src.size()];
-		for(int i=0;i<src.size();i++){
-			if(type[i]==0)
-				nbr[i]=g1.adjlst[from[i]];
-			else
-				nbr[i]=g2.adjlst[from[i]];
-		}
-		// Finding neighbours of 'from' node in composite space by filtering out from composite nbrhood matrix
-		vector<pairtype> selected,productMat;
-		// Select Axial elements first
-		for(int i=0;i<src.size();i++){
-			vector<int> temp=from;
-			for(int j=0;j<nbr[i].size();j++){
-				temp[i]=nbr[i][j].first;
-				selected.push_back(make_pair(nbr[i][j].second,temp));
-			}
-		}
-		// Next step is to select best suitable elements from the rest of product matrix. We define
-		// composite neighbour as follows: $Y \in nbr(X)$ if $Y(i)==nbr(X(i))$ or $X(i)$ itself for
-		// all $i$. 
-		if(src.size()==2){
-			for(int i=0;i<nbr[0].size();i++)
-			for(int j=0;j<nbr[1].size();j++){
-				double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second);
-				vector<int> temp;
-				temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);
-				productMat.push_back(make_pair(distance,temp));
-			}	
-		}
-		else if(src.size()==3){
-			for(int i=0;i<nbr[0].size();i++)
-			for(int j=0;j<nbr[1].size();j++)
-			for(int k=0;k<nbr[2].size();k++){
-				double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second);
-				vector<int> temp;
-				temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);
-				productMat.push_back(make_pair(distance,temp));
-			}	
-		}
-		else if(src.size()==4){
-			for(int i=0;i<nbr[0].size();i++)
-			for(int j=0;j<nbr[1].size();j++)
-			for(int k=0;k<nbr[2].size();k++)
-			for(int l=0;l<nbr[3].size();l++){
-				double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second+nbr[3][l].second*nbr[3][l].second);
-				vector<int> temp;
-				temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);temp.push_back(nbr[3][l].first);
-				productMat.push_back(make_pair(distance,temp));
-			}	
-		}
-		else{
-			cout<<"Unable to handle! Max size of collision group is four...\n";
-			return 0;
-		}
-		// Choose k elements from productMat with minimum distan
-		customsort(productMat);
-		for(int i=0;i<min(k,productMat.size());i++)
-		{
-			selected.push_back(productMat[i]);							//distance
-			//selected.push_back(make_pair(1,productMat[i].second));	//step
-		}
-		for(int i=0;i<selected.size();i++)
-		{
-			vector<int> to=selected[i].second;
-			double wt=selected[i].first;
-			if(taken.find(formKey(to))!=taken.end())
-				continue;
-			double distance=curdist+wt;
-			if((inpq.find(formKey(to))==inpq.end() && isFeasible_static_multi(to,mask,type)) || (inpq.find(formKey(to))!=inpq.end() && inpq[formKey(to)]>distance)){
-				if(isFeasible_dynamic_multi(from,to,mask,type)){
-					pq.push(make_pair(distance,to));
-					inpq[formKey(to)]=distance;
-					parents[formKey(to)]=from;
-				}
-			}
-		}
-	}
-	vector<int> temp=dst;
-	stack<vector<int> > stk;
-	if(parents.find(formKey(dst))==parents.end()){
-		return 0;
-	}
-	//Storing individual paths in function argument
-	while(1)
-	{
-		stk.push(temp);
-		if(temp==parents[formKey(temp)])
-		break;
-		temp=parents[formKey(temp)];
-	}
-	while(!stk.empty())
-	{
-	    vector<int> temp=stk.top();
-	    stk.pop();
-	    for(int i=0;i<temp.size();i++){
-	    	if(paths[i].empty())
-	    		paths[i].push_back(temp[i]);
-	    	else if(paths[i].back()!=temp[i])
-	    		paths[i].push_back(temp[i]);
-	    }
-	}
-	cout<<"Roadmap composition ended at ";
-	showtime();
-	return 1;
-}
-vector<int> expand(Graph &g1,Graph &g2,int size,int k,unordered_set<string> &taken,pqtype &pq,unordered_map<string,double> &inpq,unordered_map<string,vector<int> > &parents,int type[],bool mask[])
+vector<int> expand(Graph &g1,Graph &g2,int size,int K,unordered_set<string> &taken,pqtype &pq,unordered_map<string,double> &inpq,unordered_map<string,vector<int> > &parents,int type[],bool mask[])
 {
 	// Returns extracted node from the priority queue
 	pairtype temp=pq.top();
@@ -611,7 +473,7 @@ vector<int> expand(Graph &g1,Graph &g2,int size,int k,unordered_set<string> &tak
 	if(taken.find(formKey(from))!=taken.end())
 		return from;
 	taken.insert(formKey(from));
-	vector<pair<int,double> > nbr[size];
+	set<pair<int,double> > nbr[size];
 	for(int i=0;i<size;i++){
 		if(type[i]==0)
 			nbr[i]=g1.adjlst[from[i]];
@@ -623,56 +485,58 @@ vector<int> expand(Graph &g1,Graph &g2,int size,int k,unordered_set<string> &tak
 	// Select Axial elements first
 	for(int i=0;i<size;i++){
 		vector<int> temp=from;
-		for(int j=0;j<nbr[i].size();j++){
-			temp[i]=nbr[i][j].first;
-			selected.push_back(make_pair(nbr[i][j].second,temp));
+		set<pair<int,double> >::iterator j;
+		for(j=nbr[i].begin();j!=nbr[i].end();j++){
+			temp[i]=j->first;
+			selected.push_back(make_pair(j->second,temp));
 		}
-	}
+	}	
+	set<pair<int,double> >::iterator i,j,k,l;
 	// Next step is to select best suitable elements from the rest of product matrix. We define
 	// composite neighbour as follows: $Y \in nbr(X)$ if $Y(i)==nbr(X(i))$ or $X(i)$ itself for
 	// all $i$.
 	/************** TO BE FIXED! MISSING SOME ELEMENTS ************/
 	if(size==2){
-		for(int i=0;i<nbr[0].size();i++)
-		for(int j=0;j<nbr[1].size();j++){
-			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second);
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++){
+			double distance=sqrt(i->second*i->second+j->second*j->second);
 			vector<int> temp;
-			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);
+			temp.push_back(i->first);temp.push_back(j->first);
 			productMat.push_back(make_pair(distance,temp));
 		}	
 	}
 	else if(size==3){
-		for(int i=0;i<nbr[0].size();i++)
-		for(int j=0;j<nbr[1].size();j++)
-		for(int k=0;k<nbr[2].size();k++){
-			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second);
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++)
+		for(k=nbr[2].begin();k!=nbr[2].end();k++){
+			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second);
 			vector<int> temp;
-			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);
+			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);
 			productMat.push_back(make_pair(distance,temp));
 		}	
 	}
 	else if(size==4){
-		for(int i=0;i<nbr[0].size();i++)
-		for(int j=0;j<nbr[1].size();j++)
-		for(int k=0;k<nbr[2].size();k++)
-		for(int l=0;l<nbr[3].size();l++){
-			double distance=sqrt(nbr[0][i].second*nbr[0][i].second+nbr[1][j].second*nbr[1][j].second+nbr[2][k].second*nbr[2][k].second+nbr[3][l].second*nbr[3][l].second);
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++)
+		for(k=nbr[2].begin();k!=nbr[2].end();k++)
+		for(l=nbr[3].begin();l!=nbr[3].end();l++){
+			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second+l->second*l->second);
 			vector<int> temp;
-			temp.push_back(nbr[0][i].first);temp.push_back(nbr[1][j].first);temp.push_back(nbr[2][k].first);temp.push_back(nbr[3][l].first);
+			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);temp.push_back(l->first);
 			productMat.push_back(make_pair(distance,temp));
 		}	
 	}
-	// Choose k elements from productMat with minimum distan
+	// Choose k elements from productMat with minimum distance
 	customsort(productMat);
-	for(int i=0;i<min(k,productMat.size());i++)
+	for(int ii=0;ii<min(K,productMat.size());ii++)
 	{
-		selected.push_back(productMat[i]);							//distance
-		//selected.push_back(make_pair(1,productMat[i].second));	//step
+		selected.push_back(productMat[ii]);							//distance
+		//selected.push_back(make_pair(1,productMat[ii].second));	//step
 	}
-	for(int i=0;i<selected.size();i++)
+	for(int ii=0;ii<selected.size();ii++)
 	{
-		vector<int> to=selected[i].second;
-		double wt=selected[i].first;
+		vector<int> to=selected[ii].second;
+		double wt=selected[ii].first;
 		if(taken.find(formKey(to))!=taken.end())
 			continue;
 		double distance=curdist+wt;
@@ -835,6 +699,14 @@ int findCompositePath_bidirectional(Graph g1,Graph g2,vector<int> src,vector<int
 	showtime();
 	return 0;
 }
+vector<int> reverseVec(vector<int> v)
+{
+	vector<int> r;
+	for(int i=v.size()-1;i>=0;i--){
+		r.push_back(v[i]);
+	}
+	return r;
+}
 int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[])
 {
 	cout<<"Source: "<<formKey(src)<<endl;
@@ -851,7 +723,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		cout<<"Conflicting Goal configuration!\n";
 		return 0;
 	}
-	vector<int> paths[src.size()];
+	vector<int> paths[src.size()],paths_rev[src.size()];
 	for(int i=0;i<src.size();i++){
 		if(type[i]==0)
 			paths[i]=findIndividualPath(g1,src[i],dst[i]);
@@ -862,29 +734,53 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			cout<<"Disconnected Component!\n";
 			return 0;
 		}
-	}	
+	}
+	for(int i=0;i<src.size();i++){
+		paths_rev[i]=reverseVec(paths[i]);
+	}
 	bool collision[src.size()];
 	bool cause_deadlock[src.size()];
 	vector<int> minConnectedState;
 	string start=formKey(src);
 	string goal=formKey(dst);
-	while(1){ // Each time, individual paths are recomputed
+	while(1){ // Each time, with modified individual paths
 		vector<vector<int> > collision_buckets;
+		vector<vector<int> > reachable_states_src,reachable_states_dst;
 		int flag=0,bucket_count=0;
 		int collision_bucket_num[src.size()];
 		memset(collision_bucket_num,-1,sizeof(collision_bucket_num));
 		memset(cause_deadlock,false,sizeof(cause_deadlock));
 		memset(collision,false,sizeof(collision));		
 		memset(mask,false,sizeof(mask));
-		while(1){
+		bool isfirst=true;
+		vector<vector<int> > temp_rch;
+		while(1){// iterating to find collision groupss
 			unordered_map<string,pair<string,int> > cost;	//<from,<to,steps-to-take>>
 			for(int i=0;i<src.size();i++)
 			if(collision[i]){
 				mask[i]=true;
 				cause_deadlock[i]=true;
 				break;
+			}			
+			if(isfirst){
+				unordered_map<string,pair<string,int> > cost;
+				cout<<"From Start: ";
+				getReachability(g1,g2,dst,src,paths_rev,cost,mask,type,temp_rch);
+				cout<<"Corrected states with no predecessor:\n";
+				for(int i=0;i<temp_rch.size();i++){
+					for(int j=0;j<src.size();j++){
+						temp_rch[i][j]=paths[j].size()-temp_rch[i][j]-1;
+					}
+					cout<<formKey(temp_rch[i])<<endl;
+				}
+				reachable_states_src=temp_rch;
 			}
-			minConnectedState=getRechability(g1,g2,src,dst,paths,cost,mask,type);
+			cout<<"From End: ";
+			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
+			if(isfirst){
+				reachable_states_dst=temp_rch;
+				isfirst=false;
+			}
 			for(int i=0;i<src.size();i++){
 				if(minConnectedState[i]==0)
 					mask[i]=true;
@@ -955,7 +851,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				continue;
 			mask[i]=false;
 			unordered_map<string,pair<string,int> > cost;	//<from,<to,steps-to-take>>
-			minConnectedState=getRechability(g1,g2,src,dst,paths,cost,mask,type);
+			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
 			int flag=0,bucketno;
 			vector<int> temp;
 			for(int j=0;j<src.size();j++){
@@ -980,6 +876,35 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			}
 			cout<<endl;
 		}
+		//generate frontier nodes from source and destination. The nodes will represent
+		//collision zone boundary
+		vector<int> frontier_start,frontier_end,frontier_start_indx,frontier_end_indx;
+		frontier_start_indx=reachable_states_src[0];
+		for(int i=1;i<reachable_states_src.size();i++){
+			for(int j=0;j<src.size();j++){
+				if(reachable_states_src[i][j]<frontier_start_indx[j])
+					frontier_start_indx[j]=reachable_states_src[i][j];
+			}
+		}
+		frontier_end_indx=reachable_states_dst[0];
+		for(int i=1;i<reachable_states_dst.size();i++){
+			for(int j=0;j<src.size();j++){
+				if(reachable_states_dst[i][j]>frontier_end_indx[j])
+					frontier_end_indx[j]=reachable_states_dst[i][j];
+			}
+		}
+		for(int i=0;i<src.size();i++){
+			frontier_start.push_back(paths[i][frontier_start_indx[i]]);
+			frontier_end.push_back(paths[i][frontier_end_indx[i]]);
+		}
+		cout<<"Frontier-START:\n";
+		for(int i=0;i<src.size();i++)
+			cout<<frontier_start_indx[i]<<" ";
+		cout<<"\nFrontier-END:\n";
+		for(int i=0;i<src.size();i++)
+			cout<<frontier_end_indx[i]<<" ";
+		cout<<endl;
+
 		//Composite planning for colliding robots
 		for(int i=0;i<collision_buckets.size();i++){
 			cout<<"Resolving collision group "<<i+1<<"...\n";
@@ -988,8 +913,8 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			int category[index.size()];
 			vector<int> paths_new[index.size()];
 			for(int j=0;j<index.size();j++){
-				start.push_back(src[index[j]]);
-				end.push_back(dst[index[j]]);
+				start.push_back(frontier_start[index[j]]);
+				end.push_back(frontier_end[index[j]]);
 				category[j]=type[index[j]];
 			}
 			int res=findCompositePath_bidirectional(g1,g2,start,end,category,paths_new);
@@ -997,8 +922,16 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				cout<<"No path exist\n";
 				return 1;
 			}
-			for(int j=0;j<index.size();j++)
-				paths[index[j]]=paths_new[j];
+			for(int j=0;j<index.size();j++){
+				vector<int> temp;
+				for(int k=0;k<frontier_start_indx[index[j]];k++)
+					temp.push_back(paths[index[j]][k]);
+				for(int k=0;k<paths_new[j].size();k++)
+					temp.push_back(paths_new[j][k]);
+				for(int k=frontier_end_indx[index[j]]+1;k<paths[index[j]].size();k++)
+					temp.push_back(paths[index[j]][k]);
+				paths[index[j]]=temp;
+			}
 		}
 		//Print new paths
 		for(int i=0;i<src.size();i++){
@@ -1013,7 +946,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		// cout<<"Found new paths.coordination in progress...\n";
 		// unordered_map<string,pair<string,int> > cost;
 		// memset(mask,false,sizeof(mask));
-		// minConnectedState=getRechability(g1,g2,src,dst,paths,cost,mask,type);
+		// minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type);
 		// if(cost.find(start)!=cost.end()){
 		// 	string temp=start;
 		// 	cout<<"Joint Path:"<<endl<<start<<endl;
