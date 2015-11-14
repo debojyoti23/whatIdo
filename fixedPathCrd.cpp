@@ -412,6 +412,7 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 			continue;
 		}
 		priority_queue<pair<string,int>,vector<pair<string,int> >,compare> qnbr;
+		// cout<<"TEST FROM:"<<from<<endl;
 		// Check Neighbours for all robots
 		for(int i1=0;i1<=1 && p1+i1<l[0];i1++)
 		for(int i2=0;i2<=1 && p2+i2<l[1];i2++)
@@ -426,10 +427,12 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 				continue;
 			if(!isFeasible_dynamic_multi(vfrom,vto,mask,type))
 				continue;
+			// cout<<"TEST:"<<i1<<"-"<<i2<<"-"<<i3<<"-"<<i4<<"-"<<i5<<"-"<<cost[to].second<<endl;
 			qnbr.push(make_pair(to,cost[to].second));
 		}
 		if(!qnbr.empty()){
 			cost[from]=make_pair(qnbr.top().first,1+qnbr.top().second);
+			// cout<<"TEST TO:"<<cost[from].first<<"--"<<cost[from].second-1<<endl;
 			int flag=0;
 			if(!minimal_set.empty()){
 				vector<vector<int> >::iterator it;
@@ -735,9 +738,6 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			return 0;
 		}
 	}
-	for(int i=0;i<src.size();i++){
-		paths_rev[i]=reverseVec(paths[i]);
-	}
 	bool collision[src.size()];
 	bool cause_deadlock[src.size()];
 	vector<int> minConnectedState;
@@ -764,6 +764,9 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 			}			
 			if(isfirst){
 				unordered_map<string,pair<string,int> > cost;
+				for(int i=0;i<src.size();i++){
+					paths_rev[i]=reverseVec(paths[i]);
+				}
 				cout<<"From Start: ";
 				getReachability(g1,g2,dst,src,paths_rev,cost,mask,type,temp_rch);
 				cout<<"Corrected states with no predecessor:\n";
