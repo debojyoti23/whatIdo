@@ -66,9 +66,19 @@ void customsort(vector<pairtype> &v)
 inline string formKey(vector<int> robots)
 {
 	string temp=to_string(robots[0]);
+	for(int i=1;i<robots.size();i++)
+		temp=temp+"-"+to_string(robots[i]);
+	return temp;
+}
+inline string formKey_indexed(vector<int> robots,vector<int> positions)
+{
+	string temp=to_string(robots[0]);
+	string temp1=to_string(positions[0]);
 	for(int i=1;i<robots.size();i++){
 		temp=temp+"-"+to_string(robots[i]);
+		temp1=temp1+"-"+to_string(positions[i]);
 	}
+	temp=temp+":"+temp1;
 	return temp;
 }
 bool onSegment(pair<double,double> p,pair<double,double> q,pair<double,double> r)
@@ -382,7 +392,7 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 {
 	vector<vector<int> > minimal_set;
 	int l[src.size()];
-	vector<int> goal;
+	vector<int> goal,goal_ind;
 	cout<<"coordination in progress. Started at : ";
 	showtime();
 	for(int i=0;i<src.size();i++){
@@ -394,8 +404,9 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 			goal.push_back(paths[i][0]);
 			l[i]=1;
 		}
+		goal_ind.push_back(l[i]-1);
 	}
-	cost[formKey(goal)]=make_pair(formKey(goal),-1);
+	cost[formKey_indexed(goal,goal_ind)]=make_pair(formKey_indexed(goal,goal_ind),0);
 
 	for(int p1=l[0]-1;p1>=0;p1--)
 	for(int p2=l[1]-1;p2>=0;p2--)
@@ -405,14 +416,12 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 		vector<int> vfrom,vfrom_ind;
 		vfrom.push_back(paths[0][p1]);vfrom.push_back(paths[1][p2]);vfrom.push_back(paths[2][p3]);vfrom.push_back(paths[3][p4]);vfrom.push_back(paths[4][p5]);
 		vfrom_ind.push_back(p1);vfrom_ind.push_back(p2);vfrom_ind.push_back(p3);vfrom_ind.push_back(p4);vfrom_ind.push_back(p5);
-		string from=formKey(vfrom);
+		string from=formKey_indexed(vfrom,vfrom_ind);
 		//check for static collision
 		if(!isFeasible_static_multi(vfrom,mask,type)){	
-			// valid[p1][p2][p3][p4]=false;
 			continue;
 		}
 		priority_queue<pair<string,int>,vector<pair<string,int> >,compare> qnbr;
-		// cout<<"TEST FROM:"<<from<<endl;
 		// Check Neighbours for all robots
 		for(int i1=0;i1<=1 && p1+i1<l[0];i1++)
 		for(int i2=0;i2<=1 && p2+i2<l[1];i2++)
@@ -420,19 +429,20 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 		for(int i4=0;i4<=1 && p4+i4<l[3];i4++)
 		for(int i5=0;i5<=1 && p5+i5<l[4];i5++)
 		{
-			vector<int> vto;
+			if(i1+i2+i3+i4+i5==0)
+				continue;
+			vector<int> vto,vto_ind;
 			vto.push_back(paths[0][p1+i1]);vto.push_back(paths[1][p2+i2]);vto.push_back(paths[2][p3+i3]);vto.push_back(paths[3][p4+i4]);vto.push_back(paths[4][p5+i5]);
-			string to=formKey(vto);
+			vto_ind.push_back(p1+i1);vto_ind.push_back(p2+i2);vto_ind.push_back(p3+i3);vto_ind.push_back(p4+i4);vto_ind.push_back(p5+i5);
+			string to=formKey_indexed(vto,vto_ind);
 			if(cost.find(to)==cost.end())
 				continue;
 			if(!isFeasible_dynamic_multi(vfrom,vto,mask,type))
 				continue;
-			// cout<<"TEST:"<<i1<<"-"<<i2<<"-"<<i3<<"-"<<i4<<"-"<<i5<<"-"<<cost[to].second<<endl;
 			qnbr.push(make_pair(to,cost[to].second));
 		}
 		if(!qnbr.empty()){
 			cost[from]=make_pair(qnbr.top().first,1+qnbr.top().second);
-			// cout<<"TEST TO:"<<cost[from].first<<"--"<<cost[from].second-1<<endl;
 			int flag=0;
 			if(!minimal_set.empty()){
 				vector<vector<int> >::iterator it;
@@ -741,8 +751,13 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 	bool collision[src.size()];
 	bool cause_deadlock[src.size()];
 	vector<int> minConnectedState;
-	string start=formKey(src);
-	string goal=formKey(dst);
+	vector<int> src_ind,dst_ind;
+	for(int i=0;i<src.size();i++){
+		src_ind.push_back(0);
+		dst_ind.push_back(paths[i].size()-1);
+	}
+	string start=formKey_indexed(src,src_ind);
+	string goal=formKey_indexed(dst,dst_ind);
 	while(1){ // Each time, with modified individual paths
 		vector<vector<int> > collision_buckets;
 		vector<vector<int> > reachable_states_src,reachable_states_dst;
@@ -762,7 +777,21 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				cause_deadlock[i]=true;
 				break;
 			}			
-			if(isfirst){
+			
+			cout<<"From End: ";
+			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
+			// FRontier from end
+			if(!flag){
+				reachable_states_dst=temp_rch;
+				// isfirst=false;
+			}
+			for(int i=0;i<src.size();i++){
+				if(minConnectedState[i]==0)
+					mask[i]=true;
+			}
+			
+			// Frontier from start
+			if(!flag && cost.find(start)==cost.end()){
 				unordered_map<string,pair<string,int> > cost;
 				for(int i=0;i<src.size();i++){
 					paths_rev[i]=reverseVec(paths[i]);
@@ -778,25 +807,20 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				}
 				reachable_states_src=temp_rch;
 			}
-			cout<<"From End: ";
-			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
-			if(isfirst){
-				reachable_states_dst=temp_rch;
-				isfirst=false;
-			}
-			for(int i=0;i<src.size();i++){
-				if(minConnectedState[i]==0)
-					mask[i]=true;
-			}
+
 			if(cost.find(start)!=cost.end())
 			{	
 				if(flag==0){	//First attempt is deadlock free, all the robots can follow their individual paths
-					string temp=start;
-					cout<<"Joint Path:"<<endl<<start<<endl;
-					while(temp!=goal){
-						cout<<cost[temp].first<<endl;
+					int x;
+					string temp=start,out;
+					cout<<"Joint Path:"<<endl;
+					do{
+						stringstream ss(temp);
+						getline(ss,out,':');
+						cout<<out<<endl;
+						x=cost[temp].second;
 						temp=cost[temp].first;
-					}
+					}while(x!=0);
 					cout<<"SUCCESS! Coordination cost="<<cost[start].second<<endl;
 					return 2;
 				}
@@ -1152,7 +1176,8 @@ int main(int argc,char *argv[])
 		// Tuple consists of one triangle followed by three circle instances
 		//src=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
 		//dst=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
-		src=create_tuple(5,82,1170,13,61,1290);
+		// src=create_tuple(5,82,1170,13,61,1290);
+		src=create_tuple(5,82,1170,13,3425,1290);
 		//dst=create_tuple(5,60,1130,1186,96,1246);	//3+2 robots deadlock
 		//dst=create_tuple(5,60,1130,73,96,1294);	//collision free
 		dst=create_tuple(5,60,1130,1186,160,1246);	//2+2 robot deadlock
