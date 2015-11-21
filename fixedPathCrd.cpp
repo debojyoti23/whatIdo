@@ -488,10 +488,14 @@ vector<int> expand(Graph &g1,Graph &g2,int size,int K,unordered_set<string> &tak
 	taken.insert(formKey(from));
 	set<pair<int,double> > nbr[size];
 	for(int i=0;i<size;i++){
-		if(type[i]==0)
+		if(type[i]==0){
 			nbr[i]=g1.adjlst[from[i]];
-		else
+			nbr[i].insert(make_pair(from[i],0));
+		}
+		else{
 			nbr[i]=g2.adjlst[from[i]];
+			nbr[i].insert(make_pair(from[i],0));
+		}
 	}
 	// Finding neighbours of 'from' node in composite space by filtering out from composite nbrhood matrix
 	vector<pairtype> selected,productMat;
@@ -512,27 +516,33 @@ vector<int> expand(Graph &g1,Graph &g2,int size,int K,unordered_set<string> &tak
 	if(size==2){
 		for(i=nbr[0].begin();i!=nbr[0].end();i++)
 		for(j=nbr[1].begin();j!=nbr[1].end();j++){
+			if(i->first==from[0] && j->first==from[1])
+				continue;
 			double distance=sqrt(i->second*i->second+j->second*j->second);
 			vector<int> temp;
 			temp.push_back(i->first);temp.push_back(j->first);
 			productMat.push_back(make_pair(distance,temp));
-		}	
+		}
 	}
 	else if(size==3){
 		for(i=nbr[0].begin();i!=nbr[0].end();i++)
 		for(j=nbr[1].begin();j!=nbr[1].end();j++)
 		for(k=nbr[2].begin();k!=nbr[2].end();k++){
+			if(i->first==from[0] && j->first==from[1] && k->first==from[2])
+				continue;
 			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second);
 			vector<int> temp;
 			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);
 			productMat.push_back(make_pair(distance,temp));
-		}	
+		}
 	}
 	else if(size==4){
 		for(i=nbr[0].begin();i!=nbr[0].end();i++)
 		for(j=nbr[1].begin();j!=nbr[1].end();j++)
 		for(k=nbr[2].begin();k!=nbr[2].end();k++)
 		for(l=nbr[3].begin();l!=nbr[3].end();l++){
+			if(i->first==from[0] && j->first==from[1] && k->first==from[2] && l->first==from[3])
+				continue;
 			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second+l->second*l->second);
 			vector<int> temp;
 			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);temp.push_back(l->first);
