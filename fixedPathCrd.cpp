@@ -466,9 +466,9 @@ vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,ve
 	}
 	reachable_states=minimal_set;
 	vector<int> nonzero(src.size(),0);
-	cout<<"States with no predecessor:\n";
+	// cout<<"States with no predecessor:\n";
 	for(int i=0;i<minimal_set.size();i++){
-		cout<<formKey(minimal_set[i])<<endl;
+		// cout<<formKey(minimal_set[i])<<endl;
 		for(int j=0;j<src.size();j++)
 			nonzero[j]+=minimal_set[i][j];
 	}
@@ -720,19 +720,53 @@ vector<int> reverseVec(vector<int> v)
 	}
 	return r;
 }
+void print_collision_groups(vector<vector<int> > groups)
+{
+	cout<<"Collision groups:\n";
+	for(int i=0;i<groups.size();i++){
+		vector<int> temp=groups[i];
+		for(int j=0;j<temp.size();j++)
+			cout<<temp[j]<<" ";
+		cout<<endl;
+	}
+}
+void find_connected_components(int matrix[N][N],vector<vector<int> > &collision_buckets)
+{
+	//BFS
+	bool visited[N];
+	memset(visited,false,sizeof(visited));
+	for(int i=0;i<N;i++){
+		if(visited[i])
+			continue;
+		queue<int> temp;
+		vector<int> group;
+		temp.push(i);
+		while(!temp.empty()){
+			int now=temp.front();
+			temp.pop();
+			group.push_back(now);
+			visited[now]=true;
+			for(int j=0;j<N;j++){
+				if(!visited[j] && matrix[now][j]==1){
+					temp.push(j);
+				}
+			}
+		}
+		if(group.size()>1)
+			collision_buckets.push_back(group);
+	}
+}
 int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[])
 {
 	cout<<"Source: "<<formKey(src)<<endl;
 	cout<<"Destination: "<<formKey(dst)<<endl;
 	bool mask[src.size()];
 	memset(mask,false,sizeof(mask));
-	if(!isFeasible_static_multi(src,mask,type))
-	{
+	if(!isFeasible_static_multi(src,mask,type)){
 		cout<<"Conflicting Start configuration!\n";
 		return 0;
 	}
-	else if(!isFeasible_static_multi(dst,mask,type))
-	{
+	else if(!isFeasible_static_multi(dst,mask,type)){
 		cout<<"Conflicting Goal configuration!\n";
 		return 0;
 	}
@@ -749,7 +783,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		}
 	}
 	bool collision[src.size()];
-	bool cause_deadlock[src.size()];
+	bool initial_deadlocked[src.size()];
 	vector<int> minConnectedState;
 	vector<int> src_ind,dst_ind;
 	for(int i=0;i<src.size();i++){
@@ -759,57 +793,56 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 	string start=formKey_indexed(src,src_ind);
 	string goal=formKey_indexed(dst,dst_ind);
 	while(1){ // Each time, with modified individual paths
-		vector<vector<int> > collision_buckets;
 		vector<vector<int> > reachable_states_src,reachable_states_dst;
 		int flag=0,bucket_count=0;
-		int collision_bucket_num[src.size()];
-		memset(collision_bucket_num,-1,sizeof(collision_bucket_num));
-		memset(cause_deadlock,false,sizeof(cause_deadlock));
-		memset(collision,false,sizeof(collision));		
+		memset(collision,false,sizeof(collision));
+		memset(initial_deadlocked,false,sizeof(initial_deadlocked));
 		memset(mask,false,sizeof(mask));
 		bool isfirst=true;
 		vector<vector<int> > temp_rch;
+		int deadlock_matrix[N][N];
+		memset(deadlock_matrix,0,sizeof(deadlock_matrix));
+		vector<int> unresolved;
+		int removed;
 		while(1){// iterating to find collision groupss
 			unordered_map<string,pair<string,int> > cost;	//<from,<to,steps-to-take>>
 			for(int i=0;i<src.size();i++)
-			if(collision[i]){
+			if(initial_deadlocked[i]){
 				mask[i]=true;
-				cause_deadlock[i]=true;
+				initial_deadlocked[i]=false;
+				collision[i]=false;
+				removed=i;
+				cout<<"Removed "<<i<<"..."<<endl;
 				break;
-			}			
-			
+			}
 			cout<<"From End: ";
 			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
 			// FRontier from end
 			if(!flag){
 				reachable_states_dst=temp_rch;
-				// isfirst=false;
-			}
-			for(int i=0;i<src.size();i++){
-				if(minConnectedState[i]==0)
-					mask[i]=true;
-			}
-			
+				for(int i=0;i<src.size();i++){
+					if(minConnectedState[i]==0)
+						mask[i]=true;
+				}
+			}			
 			// Frontier from start
 			if(!flag && cost.find(start)==cost.end()){
 				unordered_map<string,pair<string,int> > cost;
 				for(int i=0;i<src.size();i++){
 					paths_rev[i]=reverseVec(paths[i]);
 				}
-				cout<<"From Start: ";
+				cout<<"From Start[Reversing the paths]:";
 				getReachability(g1,g2,dst,src,paths_rev,cost,mask,type,temp_rch);
-				cout<<"Corrected states with no predecessor:\n";
+				// cout<<"Corrected states with no successor:\n";
 				for(int i=0;i<temp_rch.size();i++){
 					for(int j=0;j<src.size();j++){
 						temp_rch[i][j]=paths[j].size()-temp_rch[i][j]-1;
 					}
-					cout<<formKey(temp_rch[i])<<endl;
+					// cout<<formKey(temp_rch[i])<<endl;
 				}
 				reachable_states_src=temp_rch;
 			}
-
-			if(cost.find(start)!=cost.end())
-			{	
+			if(cost.find(start)!=cost.end()){
 				if(flag==0){	//First attempt is deadlock free, all the robots can follow their individual paths
 					int x;
 					string temp=start,out;
@@ -828,21 +861,30 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 					vector<int> temp;	
 					for(int i=0;i<src.size();i++){
 						if(collision[i]){
-							collision_bucket_num[i]=bucket_count;
 							temp.push_back(i);
+							cout<<"Freed:"<<i<<endl;
+							collision[i]=false;
 						}
-					}				
-					collision_buckets.push_back(temp);
-					bucket_count++;
+					}
+					temp.push_back(removed);
+					for(int i=0;i<temp.size();i++)
+						for(int j=i+1;j<temp.size();j++){
+							deadlock_matrix[temp[i]][temp[j]]=1;
+							deadlock_matrix[temp[j]][temp[i]]=1;
+						}
 					break;
 				}
 			}
 			else{	//Deadlock situation
 				if(flag==0){
-					cout<<"FAILURE! Resolving collision...\n";
+					cout<<"FAILURE! Robots in deadlock: ";
 					for(int i=0;i<src.size();i++)
-						if(minConnectedState[i]!=0)
+						if(minConnectedState[i]!=0){
+							initial_deadlocked[i]=true;
 							collision[i]=true;
+							cout<<i<<" ";
+						}
+					cout<<endl;
 					flag=1;
 				}
 				else{
@@ -850,59 +892,35 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 					vector<int> temp;
 					for(int i=0;i<src.size();i++)
 						if(collision[i] && minConnectedState[i]==0){
-							collision[i]=false;
 							temp.push_back(i);
+							cout<<"Freed:"<<i<<endl;
+							collision[i]=false;
 						}
-					if(temp.size()>1){	//Deadlock does not dissolve
-						collision_buckets.push_back(temp);
+					if(temp.size()>0){	//Deadlock does not dissolve
+						temp.push_back(removed);
 						for(int i=0;i<temp.size();i++)
-							collision_bucket_num[temp[i]]=bucket_count;
-						bucket_count++;
+							for(int j=i+1;j<temp.size();j++){
+								deadlock_matrix[temp[i]][temp[j]]=1;
+								deadlock_matrix[temp[j]][temp[i]]=1;
+							}
+					}
+					else{
+						cout<<"Unable to free any\n";
+						unresolved.push_back(removed);
 					}
 				}
 			}
 		}
-
-		// //Get the collision groups
-		// cout<<"1. Number of Collision groups: "<<collision_buckets.size()<<endl;
-		// for(int i=0;i<collision_buckets.size();i++){
-		// 	for(int j=0;j<collision_buckets[i].size();j++){
-		// 		cout<<collision_buckets[i][j]<<" ";
-		// 	}
-		// 	cout<<endl;
-		// }
-
-		// Assigning to collision buckets...adding one by one to the collision free set of robots
+		// Get collision groups by finding connected components in deadlock_matrix
+		cout<<"Deadlock Matrix:\n";
 		for(int i=0;i<src.size();i++){
-			if(cause_deadlock[i]==false)
-				continue;
-			mask[i]=false;
-			unordered_map<string,pair<string,int> > cost;	//<from,<to,steps-to-take>>
-			minConnectedState=getReachability(g1,g2,src,dst,paths,cost,mask,type,temp_rch);
-			int flag=0,bucketno;
-			vector<int> temp;
-			for(int j=0;j<src.size();j++){
-				if(minConnectedState[j]!=0){
-					flag=1;
-					mask[j]=true;
-					cause_deadlock[j]=false;
-					temp.push_back(j);
-					if(collision_bucket_num[j]!=-1)
-						bucketno=collision_bucket_num[j];
-				}
-			}
-			if(flag==1){
-				collision_buckets[bucketno]=temp;
-			}
-		}
-		//Get the collision groups
-		cout<<"Number of Collision groups: "<<collision_buckets.size()<<endl;
-		for(int i=0;i<collision_buckets.size();i++){
-			for(int j=0;j<collision_buckets[i].size();j++){
-				cout<<collision_buckets[i][j]<<" ";
-			}
+			for(int j=0;j<src.size();j++)
+				cout<<deadlock_matrix[i][j]<<" ";
 			cout<<endl;
 		}
+		vector<vector<int> > collision_buckets;
+		find_connected_components(deadlock_matrix,collision_buckets);
+		print_collision_groups(collision_buckets);
 		//generate frontier nodes from source and destination. The nodes will represent
 		//collision zone boundary
 		vector<int> frontier_start,frontier_end,frontier_start_indx,frontier_end_indx;
@@ -1177,11 +1195,13 @@ int main(int argc,char *argv[])
 		//src=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
 		//dst=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
 		// src=create_tuple(5,82,1170,13,61,1290);
-		src=create_tuple(5,82,1170,13,3425,1290);
+		// src=create_tuple(5,82,1170,13,3425,1290);
+		src=create_tuple(5,82,1170,13,42,1290);
 		//dst=create_tuple(5,60,1130,1186,96,1246);	//3+2 robots deadlock
 		//dst=create_tuple(5,60,1130,73,96,1294);	//collision free
-		dst=create_tuple(5,60,1130,1186,160,1246);	//2+2 robot deadlock
+		// dst=create_tuple(5,60,1130,1186,160,1246);	//2+2 robot deadlock
 		//dst=create_tuple(5,103,160,1186,96);	//2 robot deadlock
+		dst=create_tuple(5,60,1130,1186,209,1246);
 
 		pair<double,double> spaceComplexity;	//<heapsize,ratio_of_discardedEdge>
 		int ret=findJointShortestPath(g1,g2,src,dst,type);
