@@ -4,19 +4,60 @@
 #include<unordered_map>
 #include<unordered_set>
 #include<ctime>
-using namespace std;
+#include "ds_arm.h"
 #define ROBOTICARM
-#include "helper.h"
 #ifdef ROBOTICARM
-	#include "ds_arm.h"
 	#include "collision_handler_arm.h"
-	#include "coordinate_arm.h"
 #else
-	#include "ds_planar.h"
 	#include "collision_handler_planar.h"
-	#include "coordinate_planar.h"
 #endif
-#include "roadmap_composition.h"
+using namespace std;
+void showtime()
+{
+	time_t t=time(0);
+	struct tm *now=localtime(&t);
+	cout << (now->tm_hour) << ':' 
+         << (now->tm_min) << ':'
+         <<  now->tm_sec
+         << endl;
+}
+class compare{
+public:
+	bool operator()(pair<string,int> e1,pair<string,int> e2){
+		return e1.second>e2.second;
+	}
+};
+void customsort(vector<pairtype> &v)
+{
+	vector<pair<double,int> > aux;
+	for(int i=0;i<v.size();i++){
+		aux.push_back(make_pair(v[i].first,i));
+	}
+	sort(aux.begin(),aux.end());
+	vector<pairtype> temp;
+	for(int i=0;i<v.size();i++){
+		temp.push_back(v[aux[i].second]);
+	}
+	v=temp;
+}
+inline string formKey(vector<int> robots)
+{
+	string temp=to_string(robots[0]);
+	for(int i=1;i<robots.size();i++)
+		temp=temp+"-"+to_string(robots[i]);
+	return temp;
+}
+inline string formKey_indexed(vector<int> robots,vector<int> positions)
+{
+	string temp=to_string(robots[0]);
+	string temp1=to_string(positions[0]);
+	for(int i=1;i<robots.size();i++){
+		temp=temp+"-"+to_string(robots[i]);
+		temp1=temp1+"-"+to_string(positions[i]);
+	}
+	temp=temp+":"+temp1;
+	return temp;
+}
 vector<int> findIndividualPath(Graph g,int src,int dst)
 {
 	unordered_set<int> taken;
@@ -68,6 +109,252 @@ vector<int> findIndividualPath(Graph g,int src,int dst)
 	cout<<"Path length: "<<path.size()-1<<endl;
 	return path;
 }
+vector<int> expand(Graph &g1,Graph &g2,int size,int K,unordered_set<string> &taken,pqtype &pq,unordered_map<string,double> &inpq,unordered_map<string,vector<int> > &parents,int type[],bool mask[])
+{
+	// Returns extracted node from the priority queue
+	pairtype temp=pq.top();
+	pq.pop();
+	vector<int> from=temp.second;
+	double curdist=temp.first;
+	if(taken.find(formKey(from))!=taken.end())
+		return from;
+	taken.insert(formKey(from));
+	set<pair<int,double> > nbr[size];
+	for(int i=0;i<size;i++){
+		if(type[i]==0){
+			nbr[i]=g1.adjlst[from[i]];
+			nbr[i].insert(make_pair(from[i],0));
+		}
+		else{
+			nbr[i]=g2.adjlst[from[i]];
+			nbr[i].insert(make_pair(from[i],0));
+		}
+	}
+	// Finding neighbours of 'from' node in composite space by filtering out from composite nbrhood matrix
+	vector<pairtype> selected,productMat;
+	// Select Axial elements first
+	for(int i=0;i<size;i++){
+		vector<int> temp=from;
+		set<pair<int,double> >::iterator j;
+		for(j=nbr[i].begin();j!=nbr[i].end();j++){
+			temp[i]=j->first;
+			selected.push_back(make_pair(j->second,temp));
+		}
+	}	
+	set<pair<int,double> >::iterator i,j,k,l;
+	// Next step is to select best suitable elements from the rest of product matrix. We define
+	// composite neighbour as follows: $Y \in nbr(X)$ if $Y(i)==nbr(X(i))$ or $X(i)$ itself for
+	// all $i$.
+	/************** TO BE FIXED! MISSING SOME ELEMENTS ************/
+	if(size==2){
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++){
+			if(i->first==from[0] && j->first==from[1])
+				continue;
+			double distance=sqrt(i->second*i->second+j->second*j->second);
+			vector<int> temp;
+			temp.push_back(i->first);temp.push_back(j->first);
+			productMat.push_back(make_pair(distance,temp));
+		}
+	}
+	else if(size==3){
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++)
+		for(k=nbr[2].begin();k!=nbr[2].end();k++){
+			if(i->first==from[0] && j->first==from[1] && k->first==from[2])
+				continue;
+			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second);
+			vector<int> temp;
+			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);
+			productMat.push_back(make_pair(distance,temp));
+		}
+	}
+	else if(size==4){
+		for(i=nbr[0].begin();i!=nbr[0].end();i++)
+		for(j=nbr[1].begin();j!=nbr[1].end();j++)
+		for(k=nbr[2].begin();k!=nbr[2].end();k++)
+		for(l=nbr[3].begin();l!=nbr[3].end();l++){
+			if(i->first==from[0] && j->first==from[1] && k->first==from[2] && l->first==from[3])
+				continue;
+			double distance=sqrt(i->second*i->second+j->second*j->second+k->second*k->second+l->second*l->second);
+			vector<int> temp;
+			temp.push_back(i->first);temp.push_back(j->first);temp.push_back(k->first);temp.push_back(l->first);
+			productMat.push_back(make_pair(distance,temp));
+		}	
+	}
+	// Choose k elements from productMat with minimum distance
+	customsort(productMat);
+	for(int ii=0;ii<min(K,productMat.size());ii++)
+	{
+		selected.push_back(productMat[ii]);							//distance
+		//selected.push_back(make_pair(1,productMat[ii].second));	//step
+	}
+	for(int ii=0;ii<selected.size();ii++)
+	{
+		vector<int> to=selected[ii].second;
+		double wt=selected[ii].first;
+		if(taken.find(formKey(to))!=taken.end())
+			continue;
+		double distance=curdist+wt;
+		if((inpq.find(formKey(to))==inpq.end() && isFeasible_static_multi(to,mask,type)) || (inpq.find(formKey(to))!=inpq.end() && inpq[formKey(to)]>distance)){
+			if(isFeasible_dynamic_multi(from,to,mask,type)){
+				pq.push(make_pair(distance,to));
+				inpq[formKey(to)]=distance;
+				parents[formKey(to)]=from;
+			}
+		}
+	}
+	return from;
+}
+int findCompositePath_bidirectional(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[],vector<int> paths[])
+{
+	if(src.size()>4){
+		cout<<"Can't compute composite path for more than 4 robots\n";
+		return 0;
+	}
+	unordered_set<string> taken_src,taken_dst;
+	pqtype pq_src,pq_dst;
+	bool mask[src.size()];
+	memset(mask,false,sizeof(mask));
+	unordered_map<string,double> inpq_src,inpq_dst;
+	unordered_map<string,vector<int> > parents_src,parents_dst;
+	int k=12; 	// value of k depends on the policy of choosing neigbours
+	pq_src.push(make_pair(0,src));pq_dst.push(make_pair(0,dst));
+	inpq_src[formKey(src)]=0;inpq_dst[formKey(dst)]=0;
+	parents_src[formKey(src)]=src;parents_dst[formKey(dst)]=dst;
+	string src_str=formKey(src),dst_str=formKey(dst);
+	stack<vector<int> > stk;
+	cout<<"Roadmap composition started at ";
+	showtime();
+	while(!pq_src.empty() && !pq_dst.empty())
+	{
+		// Randomly choose direction of this iteration
+		vector<int> res;
+		int t=rand()%2;
+		if(t==0){
+			res=expand(g1,g2,src.size(),k,taken_src,pq_src,inpq_src,parents_src,type,mask);
+			// If src tree is connected to dst node
+			if(taken_src.find(dst_str)!=taken_src.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				return 1;
+			}
+			// Check if connection established via intermediate res node
+			if(taken_dst.find(formKey(res))!=taken_dst.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				// Saves path from res to dst
+				temp=parents_dst[formKey(res)];
+				while(1){
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				    if(parents_dst[formKey(temp)]==temp){
+				    	showtime();
+				    	return 1;
+				    }
+				    temp=parents_dst[formKey(temp)];
+				}
+			}
+		}
+		else{
+			res=expand(g1,g2,src.size(),k,taken_dst,pq_dst,inpq_dst,parents_dst,type,mask);
+			// If dst tree is connected to src node
+			if(taken_dst.find(src_str)!=taken_dst.end()){
+				vector<int> temp=res;
+				while(1)
+				{
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+					if(temp==parents_dst[formKey(temp)]){
+						showtime();
+						return 1;
+					}
+					temp=parents_dst[formKey(temp)];
+				}
+			}
+			// Check if connection established via intermediate res node
+			if(taken_src.find(formKey(res))!=taken_src.end()){
+				vector<int> temp=res;
+				// Saves path from src to res
+				while(1)
+				{
+					stk.push(temp);
+					if(temp==parents_src[formKey(temp)])
+						break;
+					temp=parents_src[formKey(temp)];
+				}
+				while(!stk.empty())
+				{
+				    temp=stk.top();
+				    stk.pop();
+				    for(int i=0;i<temp.size();i++){
+				    	if(paths[i].empty())
+				    		paths[i].push_back(temp[i]);
+				    	else if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				}
+				// Saves path from res to dst
+				temp=parents_dst[formKey(res)];
+				while(1){
+					for(int i=0;i<temp.size();i++){
+				    	if(paths[i].back()!=temp[i])
+				    		paths[i].push_back(temp[i]);
+				    }
+				    if(parents_dst[formKey(temp)]==temp){
+				    	showtime();
+				    	return 1;
+				    }
+				    temp=parents_dst[formKey(temp)];
+				}
+			}
+		}
+	}
+	showtime();
+	return 0;
+}
 vector<int> reverseVec(vector<int> v)
 {
 	vector<int> r;
@@ -114,6 +401,7 @@ void find_connected_components(int matrix[N][N],vector<vector<int> > &collision_
 }
 int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int type[])
 {
+	cout<<src.size()<<endl;
 	cout<<"Source: "<<formKey(src)<<endl;
 	cout<<"Destination: "<<formKey(dst)<<endl;
 	bool mask[src.size()];
@@ -189,12 +477,12 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 				}
 				cout<<"From Start[Reversing the paths]:";
 				getReachability(g1,g2,dst,src,paths_rev,cost,mask,type,temp_rch);
-				// cout<<"Corrected states with no successor:\n";
+				cout<<"Corrected states with no successor:\n";
 				for(int i=0;i<temp_rch.size();i++){
 					for(int j=0;j<src.size();j++){
 						temp_rch[i][j]=paths[j].size()-temp_rch[i][j]-1;
 					}
-					// cout<<formKey(temp_rch[i])<<endl;
+					cout<<formKey(temp_rch[i])<<endl;
 				}
 				reachable_states_src=temp_rch;
 			}
@@ -411,20 +699,13 @@ int main(int argc,char *argv[])
 {
 	Graph g1(N1);
 	Graph g2(N2);
-	string name,fstr,fstr1,fstr2;
-#ifdef ROBOTICARM
-	name="manipulators_thick_2";
-	fstr="/home/debojyoti/Dropbox/Navigation/"+name+"/csv/";
-	fstr1="/home/debojyoti/Dropbox/Navigation/"+name+"/images1/";
-	fstr2="/home/debojyoti/Dropbox/Navigation/"+name+"/images2/";
-#else
-	name="arena3";
-	fstr="/home/debojyoti/Dropbox/Navigation/"+name+"/csv/";
-	fstr1="/home/debojyoti/Dropbox/Navigation/"+name+"/triangle/";
-	fstr2="/home/debojyoti/Dropbox/Navigation/"+name+"/circle/";
-#endif
+	string name="manipulators_thick_2";
+	string fstr="/home/debojyoti/Dropbox/Navigation/"+name+"/csv/";
+	string fstr1="/home/debojyoti/Dropbox/Navigation/"+name+"/images1/";
+	string fstr2="/home/debojyoti/Dropbox/Navigation/"+name+"/images2/";
 	string temp;
-	clock_t t,lastTime;	
+	clock_t t,lastTime;
+	
 	// Load neighbourhood, distance and validity Robot 1
 	ifstream fnbr1((fstr+name+"_nbr1.csv").c_str());
 	ifstream fd1((fstr+name+"_d1.csv").c_str());
@@ -514,64 +795,71 @@ int main(int argc,char *argv[])
 		}
 		i++;
 	}
+	// Take source and destination as input, each as a pair of two robot instances
 	vector<int> src,dst; //index starts from 0
-	// // Random instances
-	// ifstream fcollision1(fstr1+"collision.csv");
-	// ifstream fcollision2(fstr2+"collision.csv");
-	// vector<int> goodIndices1,goodIndices2;
-	// i=0;
-	// while(getline(fcollision1,line))
-	// {
-	// 	if(stoi(line)==0)
-	// 		goodIndices1.push_back(i);
-	// 	i++;
-	// }
-	// i=0;
-	// while(getline(fcollision2,line))
-	// {
-	// 	if(stoi(line)==0)
-	// 		goodIndices2.push_back(i);
-	// 	i++;
-	// }
+	/*src=make_pair(1992,174);//make_pair(37,391);
+	dst=make_pair(5,188);//make_pair(181,37);	
+	if(argc==5)
+	{
+		src=make_pair(atoi(argv[1]),atoi(argv[2])),dst=make_pair(atoi(argv[3]),atoi(argv[4]));		//index starts from 0
+	}*/
+	/* Randomly choose valid src and destination */
+	// Read collision files
+	ifstream fcollision1(fstr1+"collision.csv");
+	ifstream fcollision2(fstr2+"collision.csv");
+	vector<int> goodIndices1,goodIndices2;
+	i=0;
+	while(getline(fcollision1,line))
+	{
+		if(stoi(line)==0)
+			goodIndices1.push_back(i);
+		i++;
+	}
+	i=0;
+	while(getline(fcollision2,line))
+	{
+		if(stoi(line)==0)
+			goodIndices2.push_back(i);
+		i++;
+	}
 	i=0;
 	int totalRun=1;
-	// srand(time(NULL));
-	// int failure_count=0;
-	// double heapSize_avg=0;
-	// int heapSize_max=0;
-	// double discardedEdgeRatio=0;
-	// float average_clockTicks;
-	// float max_clockTicks=0;
-	lastTime=clock();
+	srand(time(NULL));
+	int failure_count=0;
+	double heapSize_avg=0;
+	int heapSize_max=0;
+	double discardedEdgeRatio=0;
+	float average_clockTicks;
+	float max_clockTicks=0;
+	t=clock();
+	lastTime=t;
+	// int type[]={1,1,1,1,1};
+	int type[]={0,1};
 	while(i<totalRun){
-#ifdef ROBOTICARM
-		int type[]={0,1};
-		// Manipulator arms
-		// src=create_tuple(2,1992,174);
-		// dst=create_tuple(2,5,3575);
-		src=create_tuple(2,1238,188);
-		dst=create_tuple(2,465,174);
-#else
-		int type[]={1,1,1,1,1};
 		// Tuple consists of one triangle followed by three circle instances
 		//src=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
 		//dst=create_tuple(4,goodIndices1[rand()%goodIndices1.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()],goodIndices2[rand()%goodIndices2.size()]);
 		// src=create_tuple(5,82,1170,13,61,1290);
 		// src=create_tuple(5,82,1170,13,3425,1290);
-		src=create_tuple(5,82,1170,13,42,1290);
+		// src=create_tuple(5,82,1170,13,42,1290);
 		//dst=create_tuple(5,60,1130,1186,96,1246);	//3+2 robots deadlock
 		//dst=create_tuple(5,60,1130,73,96,1294);	//collision free
 		// dst=create_tuple(5,60,1130,1186,160,1246);	//2+2 robot deadlock
 		//dst=create_tuple(5,103,160,1186,96);	//2 robot deadlock
-		dst=create_tuple(5,60,1130,1186,209,1246);
-#endif
+		// dst=create_tuple(5,60,1130,1186,209,1246);
 
-		// pair<double,double> spaceComplexity;	//<heapsize,ratio_of_discardedEdge>
+		// Manipulator arms
+		// src=create_tuple(2,1992,174);
+		// dst=create_tuple(2,5,3575);
+		src=create_tuple(2,1238,188);
+		dst=create_tuple(2,465,174);
+
+		pair<double,double> spaceComplexity;	//<heapsize,ratio_of_discardedEdge>
 		int ret=findJointShortestPath(g1,g2,src,dst,type);
-		// if(ret==0)
-		// 	continue;
-		// else if(ret==1)
-		// 	failure_count++;
+		if(ret==0)
+			continue;
+		else if(ret==1)
+			failure_count++;
 		// heapSize_avg+=spaceComplexity.first/totalRun;
 		// if(spaceComplexity.first>heapSize_max)
 		// 	heapSize_max=spaceComplexity.first;
@@ -583,8 +871,8 @@ int main(int argc,char *argv[])
 		lastTime=temp1;
 		i++;
 	}
-	// t=clock()-t;
-	// average_clockTicks=(float)t/totalRun;
+	t=clock()-t;
+	average_clockTicks=(float)t/totalRun;
 	// discardedEdgeRatio/=totalRun;
 	// double successRate=1-failure_count/(double)totalRun;
 	// Report Section
