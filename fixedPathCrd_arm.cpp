@@ -469,29 +469,7 @@ int main(int argc,char *argv[])
 	// fstr="/home/debojyoti/Dropbox/Navigation/"+name+"/csv/";
 	// fstr1="/home/debojyoti/Dropbox/Navigation/"+name+"/triangle/";
 	// fstr2="/home/debojyoti/Dropbox/Navigation/"+name+"/circle/";
-#endif	
-	printf("CHECK ROADMAPS>>>>>>>>>>>>\n");
-	set<pair<int,double> >::iterator it;
-	for(it=roadmaps[0].adjlst[1].begin();it!=roadmaps[0].adjlst[1].end();it++){
-		printf("%d ",it->first);
-	}
-	printf("\n");
-	for(it=roadmaps[1].adjlst[0].begin();it!=roadmaps[1].adjlst[0].end();it++){
-		printf("%d ",it->first);
-	}
-	printf("\n");
-	for(it=roadmaps[2].adjlst[3310].begin();it!=roadmaps[2].adjlst[3310].end();it++){
-		printf("%d ",it->first);
-	}
-	printf("\n");
-	for(it=roadmaps[3].adjlst[1].begin();it!=roadmaps[3].adjlst[1].end();it++){
-		printf("%d ",it->first);
-	}
-	printf("\n");
-	for(it=roadmaps[4].adjlst[0].begin();it!=roadmaps[4].adjlst[0].end();it++){
-		printf("%d ",it->first);
-	}
-	printf("\n");
+#endif
 
 	vector<int> src,dst; //index starts from 0
 	int i=0;
