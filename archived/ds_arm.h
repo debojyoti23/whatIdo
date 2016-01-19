@@ -1,3 +1,5 @@
+#define DIM1 4
+#define DIM2 4
 #define N1 5000
 #define N2 5000
 #define N 5
@@ -6,9 +8,10 @@
 using namespace std;
 typedef pair<double,vector<int> > pairtype;
 typedef priority_queue<pairtype,vector<pairtype>,greater<pairtype> > pqtype;
-int dim[] = {4,4,4,4,4};
-vector<pair<double,double> > edges[N][N1*4*2];	
-vector<pair<double,double> > trackpt[N][N1];
+vector<pair<double,double> > edges1[N1*DIM1*2];	
+vector<pair<double,double> > trackpt1[N1];
+vector<pair<double,double> > edges2[N2*DIM2*2];
+vector<pair<double,double> > trackpt2[N2];
 unordered_map<string,bool> doCollide_static[N][N];	//Pairwise static collision status 1=collision,0=none
 unordered_map<string,bool> doCollide_dynamic[N][N];	//Pairwise dynamic collision status 1=collision,0=none
 class Graph

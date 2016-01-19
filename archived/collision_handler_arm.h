@@ -35,21 +35,21 @@ bool doIntersect(pair<double,double> segments1[][2],pair<double,double> segments
 bool isFeasible_static(pair<int,int> tworobots,int type[])
 {
 	// Check for overlap of two robots by checking edge intersection
-	int n_edges1=2*dim[type[0]];
-	int n_edges2=2*dim[type[1]];
+	int n_edges1=2*DIM1;
+	int n_edges2=2*DIM2;
 	int r1=tworobots.first,r2=tworobots.second;
 	pair<double,double> r1_edges[n_edges1][2];	//each pair is of the form (startpoint,endpoint) for a line-segment
 	pair<double,double> r2_edges[n_edges2][2];
 	for(int i=0;i<n_edges1;i++)
 	{
-		r1_edges[i][0]=edges[type[0]][r1*n_edges1+i][0];
-		r1_edges[i][1]=edges[type[0]][r1*n_edges1+i][1];
+		r1_edges[i][0]=edges1[r1*n_edges1+i][0];
+		r1_edges[i][1]=edges1[r1*n_edges1+i][1];
 	}  
 	 
 	for(int i=0;i<n_edges2;i++)
 	{
-		r2_edges[i][0]=edges[type[1]][r2*n_edges2+i][0];
-		r2_edges[i][1]=edges[type[1]][r2*n_edges2+i][1];	
+		r2_edges[i][0]=edges2[r2*n_edges2+i][0];
+		r2_edges[i][1]=edges2[r2*n_edges2+i][1];	
 	}
 	return !doIntersect(r1_edges,r2_edges,n_edges1,n_edges2);
 }
@@ -79,38 +79,38 @@ bool isFeasible_dynamic(pair<int,int> tworobots_from,pair<int,int> tworobots_to,
 	int r1_from=tworobots_from.first,r2_from=tworobots_from.second;
 	int r1_to=tworobots_to.first,r2_to=tworobots_to.second;
 	// 1)Edges
-	int n_edges1=2*dim[type[0]];
-	int n_edges2=2*dim[type[1]];
+	int n_edges1=2*DIM1;
+	int n_edges2=2*DIM2;
 	pair<double,double> r1_from_edges[n_edges1][2],r2_from_edges[n_edges2][2],r1_to_edges[n_edges1][2],r2_to_edges[n_edges2][2];
 	for(int i=0;i<n_edges1;i++)
 	{
-		r1_from_edges[i][0]=edges[type[0]][r1_from*n_edges1+i][0];
-		r1_from_edges[i][1]=edges[type[0]][r1_from*n_edges1+i][1];
-		r1_to_edges[i][0]=edges[type[0]][r1_to*n_edges1+i][0];
-		r1_to_edges[i][1]=edges[type[0]][r1_to*n_edges1+i][1];
+		r1_from_edges[i][0]=edges1[r1_from*n_edges1+i][0];
+		r1_from_edges[i][1]=edges1[r1_from*n_edges1+i][1];
+		r1_to_edges[i][0]=edges1[r1_to*n_edges1+i][0];
+		r1_to_edges[i][1]=edges1[r1_to*n_edges1+i][1];
 	}
 	for(int i=0;i<n_edges2;i++)
 	{
-		r2_from_edges[i][0]=edges[type[1]][r2_from*n_edges2+i][0];
-		r2_from_edges[i][1]=edges[type[1]][r2_from*n_edges2+i][1];
-		r2_to_edges[i][0]=edges[type[1]][r2_to*n_edges2+i][0];
-		r2_to_edges[i][1]=edges[type[1]][r2_to*n_edges2+i][1];
+		r2_from_edges[i][0]=edges2[r2_from*n_edges2+i][0];
+		r2_from_edges[i][1]=edges2[r2_from*n_edges2+i][1];
+		r2_to_edges[i][0]=edges2[r2_to*n_edges2+i][0];
+		r2_to_edges[i][1]=edges2[r2_to*n_edges2+i][1];
 	}
 	// 2)Tracks
-	int n_trackpt1=trackpt[type[0]][0].size();
-	int n_trackpt2=trackpt[type[1]][0].size();
+	int n_trackpt1=trackpt1[0].size();
+	int n_trackpt2=trackpt2[0].size();
 	pair<double,double> r1_tracks[n_trackpt1][2];
 	pair<double,double> r2_tracks[n_trackpt2][2];
 	if(tworobots_from.first!=tworobots_to.first){
 		for(int i=0;i<n_trackpt1;i++){
-			r1_tracks[i][0]=trackpt[type[0]][r1_from][i];
-			r1_tracks[i][1]=trackpt[type[0]][r1_to][i];
+			r1_tracks[i][0]=trackpt1[r1_from][i];
+			r1_tracks[i][1]=trackpt1[r1_to][i];
 		}
 	}
 	if(tworobots_from.second!=tworobots_to.second){
 		for(int i=0;i<n_trackpt2;i++){
-			r2_tracks[i][0]=trackpt[type[1]][r2_from][i];
-			r2_tracks[i][1]=trackpt[type[1]][r2_to][i];
+			r2_tracks[i][0]=trackpt2[r2_from][i];
+			r2_tracks[i][1]=trackpt2[r2_to][i];
 		}
 	}
 	// Detecting Track-track collision

@@ -4,7 +4,7 @@ public:
 		return e1.second>e2.second;
 	}
 };
-vector<int> getReachability(vector<int> src,vector<int> dst,vector<int> paths[],unordered_map<string,pair<string,int> > &cost,bool mask[],int type[],vector<vector<int> > &reachable_states)
+vector<int> getReachability(Graph g1,Graph g2,vector<int> src,vector<int> dst,vector<int> paths[],unordered_map<string,pair<string,int> > &cost,bool mask[],int type[],vector<vector<int> > &reachable_states)
 {
 	vector<vector<int> > minimal_set;
 	int l[src.size()];
@@ -23,33 +23,27 @@ vector<int> getReachability(vector<int> src,vector<int> dst,vector<int> paths[],
 		goal_ind.push_back(l[i]-1);
 	}
 	cost[formKey_indexed(goal,goal_ind)]=make_pair(formKey_indexed(goal,goal_ind),0);
+	minimal_set.push_back(goal_ind);
 
 	for(int p1=l[0]-1;p1>=0;p1--)
-	for(int p2=l[1]-1;p2>=0;p2--)
-	for(int p3=l[2]-1;p3>=0;p3--)
-	for(int p4=l[3]-1;p4>=0;p4--)
-	for(int p5=l[4]-1;p5>=0;p5--){
+	for(int p2=l[1]-1;p2>=0;p2--){
 		vector<int> vfrom,vfrom_ind;
-		vfrom.push_back(paths[0][p1]);vfrom.push_back(paths[1][p2]);vfrom.push_back(paths[2][p3]);vfrom.push_back(paths[3][p4]);vfrom.push_back(paths[4][p5]);
-		vfrom_ind.push_back(p1);vfrom_ind.push_back(p2);vfrom_ind.push_back(p3);vfrom_ind.push_back(p4);vfrom_ind.push_back(p5);
+		vfrom.push_back(paths[0][p1]);vfrom.push_back(paths[1][p2]);
+		vfrom_ind.push_back(p1);vfrom_ind.push_back(p2);
 		string from=formKey_indexed(vfrom,vfrom_ind);
 		//check for static collision
-		if(!isFeasible_static_multi(vfrom,mask,type)){	
+		if(!isFeasible_static_multi(vfrom,mask,type)){
 			continue;
 		}
 		priority_queue<pair<string,int>,vector<pair<string,int> >,compare> qnbr;
 		// Check Neighbours for all robots
 		for(int i1=0;i1<=1 && p1+i1<l[0];i1++)
-		for(int i2=0;i2<=1 && p2+i2<l[1];i2++)
-		for(int i3=0;i3<=1 && p3+i3<l[2];i3++)
-		for(int i4=0;i4<=1 && p4+i4<l[3];i4++)
-		for(int i5=0;i5<=1 && p5+i5<l[4];i5++)
-		{
-			if(i1+i2+i3+i4+i5==0)
+		for(int i2=0;i2<=1 && p2+i2<l[1];i2++){
+			if(i1+i2==0)
 				continue;
 			vector<int> vto,vto_ind;
-			vto.push_back(paths[0][p1+i1]);vto.push_back(paths[1][p2+i2]);vto.push_back(paths[2][p3+i3]);vto.push_back(paths[3][p4+i4]);vto.push_back(paths[4][p5+i5]);
-			vto_ind.push_back(p1+i1);vto_ind.push_back(p2+i2);vto_ind.push_back(p3+i3);vto_ind.push_back(p4+i4);vto_ind.push_back(p5+i5);
+			vto.push_back(paths[0][p1+i1]);vto.push_back(paths[1][p2+i2]);
+			vto_ind.push_back(p1+i1);vto_ind.push_back(p2+i2);
 			string to=formKey_indexed(vto,vto_ind);
 			if(cost.find(to)==cost.end())
 				continue;

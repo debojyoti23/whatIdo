@@ -277,6 +277,7 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		vector<vector<int> > collision_buckets;
 		find_connected_components(deadlock_matrix,collision_buckets);
 		print_collision_groups(collision_buckets);
+		//TBD: Assign unresolved robots to proper collision group
 		//generate frontier nodes from source and destination. The nodes will represent
 		//collision zone boundary
 		vector<int> frontier_start,frontier_end,frontier_start_indx,frontier_end_indx;
