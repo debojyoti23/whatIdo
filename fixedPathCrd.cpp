@@ -277,7 +277,22 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		vector<vector<int> > collision_buckets;
 		find_connected_components(deadlock_matrix,collision_buckets);
 		print_collision_groups(collision_buckets);
-		//TBD: Assign unresolved robots to proper collision group
+		//Assign unresolved robots to proper collision group
+		for(int i=0;i<unresolved.size();i++){
+			for(int j=0;j<collision_buckets.size();j++){
+				vector<int> group = collision_buckets[j];
+				memset(mask,true,sizeof(mask));
+				mask[unresolved[i]]=false;
+				for(int k=0;k<group.size();k++)
+					mask[group[k]]=false;
+				unordered_map<string,pair<string,int> > tmp_cost;	//<from,<to,steps-to-take>>
+				minConnectedState=getReachability(src,dst,paths_new,tmp_cost,mask,type,temp_rch);
+				if(minConnectedState[unresolved[i]]>0){
+					collision_buckets[j].push_back(unresolved[i]);
+					break;
+				}
+			}
+		}
 		//generate frontier nodes from source and destination. The nodes will represent
 		//collision zone boundary
 		vector<int> frontier_start,frontier_end,frontier_start_indx,frontier_end_indx;
@@ -310,19 +325,25 @@ int findJointShortestPath(Graph g1,Graph g2,vector<int> src,vector<int> dst,int 
 		//Composite planning for colliding robots
 		for(int i=0;i<collision_buckets.size();i++){
 			cout<<"Resolving collision group "<<i+1<<"...\n";
-			vector<int> start,end,index;
+			vector<int> start,end,index,start_src,end_dst;
 			index=collision_buckets[i];		
 			int category[index.size()];
 			vector<int> paths_new[index.size()];
 			for(int j=0;j<index.size();j++){
 				start.push_back(frontier_start[index[j]]);
+				start_src.push_back(src[index[j]]);
 				end.push_back(frontier_end[index[j]]);
+				end_dst.push_back(dst[index[j]]);
 				category[j]=type[index[j]];
 			}
 			int res=findCompositePath_bidirectional(g1,g2,start,end,category,paths_new);
 			if(res==0){
-				cout<<"No path exist\n";
-				return 1;
+				// Failing to find path between frontiers, find path between the actual src and dst
+				res=findCompositePath_bidirectional(roadmaps,start_src,end_dst,category,paths_new);
+				if(res==0){
+					cout<<"No path exist\n";
+					return 1;
+				}
 			}
 			for(int j=0;j<index.size();j++){
 				vector<int> temp;
